@@ -318,11 +318,9 @@ export default function Dashboard() {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         <header style={{ background: headerBg, borderBottom: `1px solid ${borderColor}`, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <button onClick={() => setSidebarOpen(v => !v)} style={{ background: "none", border: "none", color: textMuted, fontSize: 21, cursor: "pointer", display: "block" }}>☰</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, color: textMuted }}>Welcome back, {user.name || "Admin"} 👋</div>
             <div className="dash-title" style={{ fontSize: 20, fontWeight: 700 }}>AI Manufacturing Dashboard</div>
-            <div style={{ fontSize: 11, color: textMuted }}>Real-time Analytics & Decision Support</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
             <div className="datetime-box" style={{ background: darkMode ? "#0f172a" : "#f8fafc", border: `1px solid ${borderColor}`, borderRadius: 9, padding: "6px 12px", fontSize: 12, color: textMuted, whiteSpace: "nowrap" }}>📅 {dateStr} | {timeStr}</div>
@@ -331,7 +329,9 @@ export default function Dashboard() {
               {unreadCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", borderRadius: "50%", width: 16, height: 16, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700 }}>{unreadCount}</span>}
             </div>
             <button onClick={() => setDarkMode(!darkMode)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>{darkMode ? "☀️" : "🌙"}</button>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>A</div>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>
+              {(user && (user.name || user.email)) ? ((user.name || user.email)[0] || "A").toUpperCase() : "A"}
+            </div>
           </div>
         </header>
 
