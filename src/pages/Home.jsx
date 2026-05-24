@@ -186,8 +186,9 @@ function Home() {
           </div>
           <div style={styles.footerSection}>
             <h4>Contact</h4>
-            <p>📧 support@factorypulse.ai</p>
-            <p>📞 +1 (555) 123-4567</p>
+            <p>📧 roupyadeepghosal@gmail.com</p>
+            <p>📧 vedikadatta1611@gmail.com</p>
+            <p>📧 sd1898691@gmail.com</p>
           </div>
         </div>
         <div style={styles.footerBottom}>
