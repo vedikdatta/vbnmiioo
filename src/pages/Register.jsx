@@ -1,41 +1,51 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+// ─── Local "DB" helpers ───────────────────────────────────────────────────────
+const getUsers = () => {
+  try {
+    return JSON.parse(localStorage.getItem("registered_users") || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const saveUsers = (users) => {
+  localStorage.setItem("registered_users", JSON.stringify(users));
+};
+
 function Register() {
-  const navigate = useNavigate();
-  const [errors, setErrors] = useState({});
+  const navigate  = useNavigate();
+  const [errors, setErrors]     = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [user, setUser] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    factoryName: "",
-    role: "",
-    contact: "",
+  const [user, setUser]         = useState({
+    name: "", email: "", password: "", confirmPassword: "",
+    factoryName: "", role: "", contact: "",
   });
 
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!user.name.trim()) newErrors.name = "Full name is required";
-    if (!user.email.trim()) newErrors.email = "Email is required";
-    if (!/\S+@\S+\.\S+/.test(user.email)) newErrors.email = "Email is invalid";
-    if (!user.password) newErrors.password = "Password is required";
-    if (user.password.length < 6) newErrors.password = "Password must be at least 6 characters";
-    if (user.password !== user.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
-    if (!user.factoryName.trim()) newErrors.factoryName = "Factory name is required";
-    if (!user.role) newErrors.role = "Please select a role";
-    if (!user.contact.trim()) newErrors.contact = "Contact number is required";
-    if (!/^\d{10}$/.test(user.contact.replace(/\D/g, ''))) newErrors.contact = "Please enter a valid 10-digit phone number";
-    
-    return newErrors;
+  const set = (field) => (e) => {
+    setUser(prev => ({ ...prev, [field]: e.target.value }));
+    setErrors(prev => ({ ...prev, [field]: undefined, general: undefined }));
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const validate = () => {
+    const e = {};
+    if (!user.name.trim())                                        e.name = "Full name is required.";
+    if (!user.email.trim())                                       e.email = "Email is required.";
+    else if (!/\S+@\S+\.\S+/.test(user.email))                   e.email = "Please enter a valid email.";
+    if (!user.password)                                           e.password = "Password is required.";
+    else if (user.password.length < 6)                           e.password = "Password must be at least 6 characters.";
+    if (user.password !== user.confirmPassword)                   e.confirmPassword = "Passwords do not match.";
+    if (!user.factoryName.trim())                                 e.factoryName = "Factory name is required.";
+    if (!user.role)                                               e.role = "Please select a role.";
+    if (!user.contact.trim())                                     e.contact = "Contact number is required.";
+    else if (!/^\d{10}$/.test(user.contact.replace(/\D/g, ""))) e.contact = "Please enter a valid 10-digit number.";
+    return e;
+  };
 
-    const validationErrors = validateForm();
+  const handleRegister = (e) => {
+    e.preventDefault();
+    const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
@@ -43,173 +53,138 @@ function Register() {
 
     setIsLoading(true);
 
-    try {
-      const payload = {
-        name: user.name,
-        email: user.email,
-        password: user.password,
-        factoryName: user.factoryName,
-        role: user.role,
-        contact: user.contact,
-      };
+    setTimeout(() => {
+      const users = getUsers();
 
-      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      const res = await fetch(`${apiBase}/api/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        const msg = data && data.message ? data.message : "Registration failed";
-        setErrors({ general: msg });
+      // Check duplicate email
+      if (users.find(u => u.email.toLowerCase() === user.email.toLowerCase())) {
+        setErrors({ general: "An account with this email already exists. Please login." });
         setIsLoading(false);
         return;
       }
 
-      alert("Registration Successful! Please login to continue.");
-      navigate("/");
-    } catch (err) {
-      console.error(err);
-      setErrors({ general: "Server error. Please try again later." });
-    } finally {
+      // Check duplicate phone
+      const cleanPhone = user.contact.replace(/\D/g, "");
+      if (users.find(u => u.contact.replace(/\D/g, "") === cleanPhone)) {
+        setErrors({ general: "An account with this phone number already exists." });
+        setIsLoading(false);
+        return;
+      }
+
+      // Save new user (password stored as-is in localStorage — fine for local/demo use)
+      const newUser = {
+        id:          Date.now().toString(),
+        name:        user.name.trim(),
+        email:       user.email.trim().toLowerCase(),
+        password:    user.password,           // stored in localStorage
+        factoryName: user.factoryName.trim(),
+        role:        user.role,
+        contact:     cleanPhone,
+        createdAt:   new Date().toISOString(),
+      };
+
+      saveUsers([...users, newUser]);
       setIsLoading(false);
-    }
+      navigate("/");
+    }, 600);
   };
 
-  const inputStyle = (field) => ({
+  const inp = (field) => ({
     padding: "14px",
     borderRadius: "10px",
-    border: errors[field] ? "1px solid #ef4444" : "1px solid #374151",
+    border: `1px solid ${errors[field] ? "#ef4444" : "#374151"}`,
     background: "#111827",
     color: "white",
     fontSize: "15px",
     outline: "none",
-    transition: "all 0.3s ease",
+    width: "100%",
+    transition: "border-color .3s",
   });
 
+  const err = (field) =>
+    errors[field] ? (
+      <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-8px" }}>{errors[field]}</span>
+    ) : null;
+
   return (
-    <div style={styles.container}>
-      <div style={styles.leftSection}>
-        <h1 style={styles.logo}>FactoryPULSE AI</h1>
-        <h2 style={styles.heading}>AI Manufacturing Analytics</h2>
-        <p style={styles.text}>
-          Smart monitoring, predictive maintenance, machine analytics, 
+    <div style={S.container}>
+      {/* LEFT */}
+      <div style={S.left}>
+        <h1 style={S.logo}>FactoryPULSE AI</h1>
+        <h2 style={S.heading}>AI Manufacturing Analytics</h2>
+        <p style={S.text}>
+          Smart monitoring, predictive maintenance, machine analytics,
           production insights, and intelligent factory management.
         </p>
-        
-        <div style={{ marginTop: "40px" }}>
-          <div style={{ display: "flex", gap: "15px", marginBottom: "15px" }}>
-            <div style={{ width: "40px", height: "40px", background: "rgba(96,165,250,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>📊</div>
-            <div><strong>Real-time Analytics</strong><br /><span style={{ fontSize: "13px", color: "#94a3b8" }}>Live production monitoring</span></div>
-          </div>
-          <div style={{ display: "flex", gap: "15px", marginBottom: "15px" }}>
-            <div style={{ width: "40px", height: "40px", background: "rgba(96,165,250,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>🔧</div>
-            <div><strong>Predictive Maintenance</strong><br /><span style={{ fontSize: "13px", color: "#94a3b8" }}>Prevent machine failures</span></div>
-          </div>
-          <div style={{ display: "flex", gap: "15px" }}>
-            <div style={{ width: "40px", height: "40px", background: "rgba(96,165,250,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>🤖</div>
-            <div><strong>AI Assistant</strong><br /><span style={{ fontSize: "13px", color: "#94a3b8" }}>24/7 smart support</span></div>
-          </div>
+        <div style={{ marginTop: 40, display: "flex", flexDirection: "column", gap: 18 }}>
+          {[
+            { icon: "📊", title: "Real-time Analytics",     sub: "Live production monitoring" },
+            { icon: "🔧", title: "Predictive Maintenance",  sub: "Prevent machine failures" },
+            { icon: "🤖", title: "AI Assistant",            sub: "24/7 smart support" },
+          ].map(({ icon, title, sub }) => (
+            <div key={title} style={{ display: "flex", gap: 15, alignItems: "flex-start" }}>
+              <div style={{ width: 40, height: 40, background: "rgba(96,165,250,.2)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+              <div>
+                <strong style={{ color: "#e2e8f0" }}>{title}</strong>
+                <br />
+                <span style={{ fontSize: 13, color: "#94a3b8" }}>{sub}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div style={styles.rightSection}>
-        <form style={styles.form} onSubmit={handleRegister}>
-          <h2 style={styles.formTitle}>Create Account</h2>
-          <p style={{ color: "#94a3b8", textAlign: "center", marginBottom: "20px", fontSize: "13px" }}>
+      {/* RIGHT */}
+      <div style={S.right}>
+        <form style={S.form} onSubmit={handleRegister} noValidate>
+          <h2 style={S.formTitle}>Create Account</h2>
+          <p style={{ color: "#94a3b8", textAlign: "center", marginBottom: 10, fontSize: 13 }}>
             Join the future of factory management
           </p>
 
-          <input
-            type="text"
-            placeholder="Full Name"
-            style={inputStyle("name")}
-            value={user.name}
-            onChange={(e) => setUser({ ...user, name: e.target.value })}
-          />
-          {errors.name && <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-10px" }}>{errors.name}</span>}
+          {errors.general && (
+            <div style={{ background: "rgba(239,68,68,.1)", border: "1px solid #ef4444", color: "#fca5a5", padding: "12px", borderRadius: "10px", fontSize: 13, textAlign: "center" }}>
+              {errors.general}
+            </div>
+          )}
 
-          <input
-            type="email"
-            placeholder="Email Address"
-            style={inputStyle("email")}
-            value={user.email}
-            onChange={(e) => setUser({ ...user, email: e.target.value })}
-          />
-          {errors.email && <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-10px" }}>{errors.email}</span>}
+          <input placeholder="Full Name"              style={inp("name")}            value={user.name}            onChange={set("name")}            type="text"     />
+          {err("name")}
 
-          <input
-            type="password"
-            placeholder="Password (min 6 characters)"
-            style={inputStyle("password")}
-            value={user.password}
-            onChange={(e) => setUser({ ...user, password: e.target.value })}
-          />
-          {errors.password && <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-10px" }}>{errors.password}</span>}
+          <input placeholder="Email Address"          style={inp("email")}           value={user.email}           onChange={set("email")}           type="email"    autoComplete="email" />
+          {err("email")}
 
-          <input
-            type="password"
-            placeholder="Re-enter Password"
-            style={inputStyle("confirmPassword")}
-            value={user.confirmPassword}
-            onChange={(e) => setUser({ ...user, confirmPassword: e.target.value })}
-          />
-          {errors.confirmPassword && <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-10px" }}>{errors.confirmPassword}</span>}
+          <input placeholder="Password (min 6 chars)" style={inp("password")}        value={user.password}        onChange={set("password")}        type="password" autoComplete="new-password" />
+          {err("password")}
 
-          <input
-            type="text"
-            placeholder="Factory Name"
-            style={inputStyle("factoryName")}
-            value={user.factoryName}
-            onChange={(e) => setUser({ ...user, factoryName: e.target.value })}
-          />
-          {errors.factoryName && <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-10px" }}>{errors.factoryName}</span>}
+          <input placeholder="Re-enter Password"      style={inp("confirmPassword")} value={user.confirmPassword} onChange={set("confirmPassword")} type="password" autoComplete="new-password" />
+          {err("confirmPassword")}
 
-          <select
-            style={inputStyle("role")}
-            value={user.role}
-            onChange={(e) => setUser({ ...user, role: e.target.value })}
-          >
+          <input placeholder="Factory Name"           style={inp("factoryName")}     value={user.factoryName}     onChange={set("factoryName")}     type="text"     />
+          {err("factoryName")}
+
+          <select style={inp("role")} value={user.role} onChange={set("role")}>
             <option value="">Select Role</option>
-            <option>Factory Manager</option>
-            <option>Supervisor</option>
-            <option>Machine Operator</option>
-            <option>Worker</option>
-            <option>Quality Inspector</option>
-            <option>Maintenance Engineer</option>
+            {["Factory Manager","Supervisor","Machine Operator","Worker","Quality Inspector","Maintenance Engineer"].map(r => (
+              <option key={r} value={r}>{r}</option>
+            ))}
           </select>
-          {errors.role && <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-10px" }}>{errors.role}</span>}
+          {err("role")}
 
-          <input
-            type="tel"
-            placeholder="Contact Number (10 digits)"
-            style={inputStyle("contact")}
-            value={user.contact}
-            onChange={(e) => setUser({ ...user, contact: e.target.value })}
-          />
-          {errors.contact && <span style={{ color: "#ef4444", fontSize: "11px", marginTop: "-10px" }}>{errors.contact}</span>}
+          <input placeholder="Contact Number (10 digits)" style={inp("contact")} value={user.contact} onChange={set("contact")} type="tel" autoComplete="tel" />
+          {err("contact")}
 
-          {errors.general && <div style={{ color: "#ef4444", fontSize: "13px", textAlign: "center" }}>{errors.general}</div>}
-
-          <button 
-            type="submit" 
-            style={{
-              ...styles.button,
-              opacity: isLoading ? 0.7 : 1,
-              cursor: isLoading ? "not-allowed" : "pointer"
-            }}
+          <button
+            type="submit"
             disabled={isLoading}
+            style={{ ...S.button, opacity: isLoading ? 0.7 : 1, cursor: isLoading ? "not-allowed" : "pointer" }}
           >
-            {isLoading ? "Registering..." : "Register →"}
+            {isLoading ? "Registering…" : "Register →"}
           </button>
 
-          <p style={styles.loginText}>
-            Already have an account?
-            <Link to="/" style={styles.link}>
-              Login
-            </Link>
+          <p style={S.loginText}>
+            Already have an account?{" "}
+            <Link to="/" style={S.link}>Login</Link>
           </p>
         </form>
       </div>
@@ -217,84 +192,18 @@ function Register() {
   );
 }
 
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    background: "linear-gradient(135deg, #0f172a, #1e1b4b)",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
-  leftSection: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    padding: "60px",
-    color: "white",
-    background: "linear-gradient(135deg, #1e1b4b, #312e81)",
-    position: "relative",
-    overflow: "hidden",
-  },
-  logo: {
-    fontSize: "42px",
-    color: "#60a5fa",
-    marginBottom: "20px",
-    fontWeight: "bold",
-  },
-  heading: {
-    fontSize: "32px",
-    marginBottom: "20px",
-  },
-  text: {
-    fontSize: "16px",
-    color: "#cbd5e1",
-    lineHeight: "1.6",
-    maxWidth: "500px",
-  },
-  rightSection: {
-    flex: 1,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: "40px",
-  },
-  form: {
-    width: "420px",
-    background: "#1f2937",
-    padding: "40px",
-    borderRadius: "20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "15px",
-    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
-  },
-  formTitle: {
-    color: "white",
-    textAlign: "center",
-    marginBottom: "5px",
-    fontSize: "28px",
-  },
-  button: {
-    padding: "14px",
-    border: "none",
-    borderRadius: "10px",
-    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-    color: "white",
-    fontSize: "16px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    marginTop: "10px",
-    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-  },
-  loginText: {
-    color: "#cbd5e1",
-    textAlign: "center",
-  },
-  link: {
-    color: "#60a5fa",
-    marginLeft: "5px",
-    textDecoration: "none",
-  },
+const S = {
+  container: { minHeight: "100vh", display: "flex", background: "linear-gradient(135deg,#0f172a,#1e1b4b)", fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
+  left:      { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px", color: "white", background: "linear-gradient(135deg,#1e1b4b,#312e81)", overflow: "hidden" },
+  logo:      { fontSize: 42, color: "#60a5fa", marginBottom: 20, fontWeight: "bold" },
+  heading:   { fontSize: 32, marginBottom: 20, color: "#e2e8f0" },
+  text:      { fontSize: 16, color: "#cbd5e1", lineHeight: "1.6", maxWidth: 500 },
+  right:     { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", padding: 40 },
+  form:      { width: 420, background: "#1f2937", padding: 40, borderRadius: 20, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 25px 50px -12px rgba(0,0,0,.5)", maxHeight: "95vh", overflowY: "auto" },
+  formTitle: { color: "white", textAlign: "center", marginBottom: 5, fontSize: 28 },
+  button:    { padding: 14, border: "none", borderRadius: 10, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", color: "white", fontSize: 16, fontWeight: "bold", marginTop: 6, transition: "transform .2s ease" },
+  loginText: { color: "#cbd5e1", textAlign: "center", fontSize: 14 },
+  link:      { color: "#60a5fa", marginLeft: 5, textDecoration: "none" },
 };
 
 export default Register;
