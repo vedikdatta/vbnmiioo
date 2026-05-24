@@ -1,0 +1,2 @@
+UDI,Product ID,Type,Air temperature [K],Process temperature [K],Rotational speed [rpm],Torque [Nm],Tool wear [min],Machine failure,TWF,HDF,PWF,OSF,RNF,install_date,idle_time,cycle_time,failure_type
+170000,M5678,L,458,293.7,1400,49.2,40,0,0,0,0,0,0,2/14/2021,82,473.19,No Failure
