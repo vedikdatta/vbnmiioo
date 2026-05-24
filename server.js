@@ -28,6 +28,19 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
+// Schema for recording login attempts
+const loginSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+  email: { type: String },
+  contact: { type: String },
+  success: { type: Boolean },
+  timestamp: { type: Date, default: Date.now },
+  ip: { type: String },
+  userAgent: { type: String }
+}, { collection: "Login User" });
+
+const LoginEvent = mongoose.model("LoginEvent", loginSchema);
+
 app.post("/api/register", async (req, res) => {
   try {
     console.log('/api/register request body:', req.body);
@@ -54,22 +67,34 @@ app.post("/api/login", async (req, res) => {
     console.log('/api/login request body:', req.body);
     const { email, phone, password } = req.body;
     if ((!email && !phone) || !password) return res.status(400).json({ message: "Missing credentials" });
-
     const query = email ? { email } : { contact: phone };
     const user = await User.findOne(query).exec();
+
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || null;
+    const userAgent = req.get && req.get('User-Agent') ? req.get('User-Agent') : (req.headers['user-agent'] || null);
+
     if (!user) {
       console.log('login: user not found for query', query);
+      try {
+        await LoginEvent.create({ email: email || null, contact: phone || null, success: false, ip: clientIp, userAgent });
+      } catch (e) { console.error('Failed to record login event (not found):', e); }
       return res.status(401).json({ message: "User not found" });
     }
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       console.log('login: wrong password for user', user.email || user.contact);
+      try {
+        await LoginEvent.create({ userId: user._id, email: user.email || null, contact: user.contact || null, success: false, ip: clientIp, userAgent });
+      } catch (e) { console.error('Failed to record login event (wrong password):', e); }
       return res.status(401).json({ message: "Incorrect password" });
     }
 
     const userSafe = { name: user.name, email: user.email, factoryName: user.factoryName, role: user.role, contact: user.contact };
     console.log('login: success for', userSafe.email || userSafe.contact);
+    try {
+      await LoginEvent.create({ userId: user._id, email: user.email || null, contact: user.contact || null, success: true, ip: clientIp, userAgent });
+    } catch (e) { console.error('Failed to record login event (success):', e); }
     return res.json({ message: "Login successful", user: userSafe });
   } catch (err) {
     console.error(err);
